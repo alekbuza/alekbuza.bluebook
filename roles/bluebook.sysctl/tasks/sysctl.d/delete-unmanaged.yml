@@ -1,0 +1,42 @@
+---
+
+# Copyright (c) 2021 Aleksandar Buza <me@aleksandarbuza.com>
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+- name: Gather all sysctl.d files and links on path /etc/sysctl.d/
+  become: true
+  find:
+    paths: /etc/sysctl.d/
+    file_type: any
+  register: __bluebook_sysctl_sysctld_all_files
+
+- name: Initialize an empty list for managed sysctl.d configuration files
+  set_fact:
+    __bluebook_sysctl_sysctld_managed_files: []
+
+- name: Build a list of all the managed sysctl.d files
+  set_fact:
+    __bluebook_sysctl_sysctld_managed_files: "{{ __sysctl_sysctld_managed_files + ['/etc/sysctl.d/' + item.order|string + '-' + item.filename + '.conf'] }}"
+  with_items: "{{ bluebook_sysctld_config_files }}"
+
+- name: Delete all unmanaged sysctl.d files with exceptions if exists
+  become: true
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items:
+    - "{{ __bluebook_sysctl_sysctld_all_files.files }}"
+  when:
+    - item.path not in __bluebook_sysctl_sysctld_managed_files
+    - item.path|basename not in bluebook_sysctld_config_delete_unmanaged_except
