@@ -1,0 +1,64 @@
+---
+
+# Copyright (c) 2021 Aleksandar Buza <me@aleksandarbuza.com>
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+- name: Ensure /etc/sysctl.d directory exists
+  become: true
+  file:
+    mode: 0755
+    owner: root
+    group: root
+    path: /etc/sysctl.d
+    state: directory
+
+- name: Ensure /etc/sysctl.d-bak directory exists
+  become: true
+  file:
+    mode: 0755
+    owner: root
+    group: root
+    path: /etc/sysctl.d-backup
+    state: directory
+  when:
+    - bluebook_sysctld_config_backup|bool
+
+- name: Backup /etc/sysctl.d directory before changes
+  become: true
+  archive:
+    path: /etc/sysctl.d/
+    dest: /etc/sysctl.d-backup/ansible-backup-sysctld-{{ ansible_date_time.iso8601_basic_short }}.tar.gz
+    format: gz
+  when:
+    - bluebook_sysctld_config_backup|bool
+
+- name: Include delete unmanaged sysctl.d tasks
+  include: sysctl.d/delete-unmanaged.yml
+  when:
+    - bluebook_sysctld_config_delete_unmanaged|bool
+
+- name: Apply sysctl.d configuration files
+  become: true
+  template:
+    src: sysctld_config.j2
+    dest: "{{ '/etc/sysctl.d/' + item.order|string + '-' + item.filename + '.conf' }}"
+    owner: root
+    group: root
+    mode: 0644
+  notify: reload sysctl
+  with_items:
+    - "{{ bluebook_sysctld_config_files }}"
+  when:
+    - item.filename is defined
+    - item.order is defined

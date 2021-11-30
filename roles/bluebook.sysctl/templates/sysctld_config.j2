@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+{% if bluebook_sysctld_config_files|length > 0 %}
+
+{%  for key, value in item.config.items() %}
+{%    if value is string %}
+{{ key }} = {{ value|string }}
+{%    elif value is number %}
+{{ key }} = {{ value|int }}
+{%    else %}
+{{ key }} = {{ value }}
+{%    endif %}
+{%  endfor %}
+{% endif %}
